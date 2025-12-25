@@ -1,0 +1,161 @@
+/* src/components/Leaderboard/Leaderboard.css */
+
+.leaderboard {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.leaderboard-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.leaderboard-header h1 {
+  font-size: 2.5rem;
+  color: var(--primary-color);
+  margin-bottom: 0.5rem;
+}
+
+.leaderboard-header h2 {
+  font-size: 1.5rem;
+  color: var(--text-secondary);
+}
+
+.no-teams {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 3rem;
+  background-color: var(--bg-primary);
+  border-radius: var(--radius-lg);
+}
+
+.leaderboard-table {
+  background-color: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  margin-bottom: 2rem;
+}
+
+.leaderboard-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.leaderboard-table thead {
+  background-color: var(--primary-color);
+  color: var(--text-light);
+}
+
+.leaderboard-table th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+}
+
+.leaderboard-table td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.leaderboard-table tr:hover {
+  background-color: var(--bg-secondary);
+}
+
+.leaderboard-table tr.current-user {
+  background-color: #fef3c7;
+}
+
+.leaderboard-table tr.current-user:hover {
+  background-color: #fde68a;
+}
+
+.rank-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.rank-number {
+  font-weight: 700;
+  font-size: 1.1rem;
+  min-width: 2rem;
+}
+
+.rank-icon {
+  flex-shrink: 0;
+}
+
+.rank-icon.gold {
+  color: #fbbf24;
+}
+
+.rank-icon.silver {
+  color: #9ca3af;
+}
+
+.rank-icon.bronze {
+  color: #cd7f32;
+}
+
+.team-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.user-name {
+  color: var(--text-secondary);
+}
+
+.points {
+  font-weight: 700;
+  color: var(--primary-color);
+  font-size: 1.1rem;
+}
+
+.leaderboard-info {
+  background-color: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  box-shadow: var(--shadow-md);
+}
+
+.leaderboard-info h3 {
+  font-size: 1.25rem;
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+}
+
+.points-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.points-grid div {
+  padding: 0.75rem;
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .leaderboard-table {
+    overflow-x: auto;
+  }
+  
+  .leaderboard-table th,
+  .leaderboard-table td {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.9rem;
+  }
+  
+  .user-name {
+    display: none;
+  }
+  
+  .points-grid {
+    grid-template-columns: 1fr;
+  }
+}

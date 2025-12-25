@@ -2,17 +2,27 @@
 
 import OpenAI from 'openai';
 
-// API Key wordt nu uit environment variables gehaald
+// ⚠️ WAARSCHUWING: Voor productie gebruik moet de API key via Cloud Function!
+// GitHub push protection voorkomt deployment met API keys in code
+// De API key moet via environment variable komen, die je lokaal in .env zet
+// maar NIET in de gedeployde versie (GitHub Pages kan geen secrets hebben)
+
 const OPENAI_API_KEY = process.env.REACT_APP_OPENAI_API_KEY;
 
 if (!OPENAI_API_KEY) {
-  console.error('WAARSCHUWING: REACT_APP_OPENAI_API_KEY is niet ingesteld in .env bestand!');
+  console.warn('OpenAI API key niet gevonden. AI verhalen worden uitgeschakeld.');
+  console.warn('Voor lokale development: voeg REACT_APP_OPENAI_API_KEY toe aan .env bestand');
+  console.warn('Voor productie: implementeer Firebase Cloud Function (zie AI_STORY_TESTING.md)');
 }
 
-const openai = new OpenAI({
-  apiKey: OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true // Voor development - in productie gebruik Cloud Function!
-});
+// OpenAI client - werkt alleen als key beschikbaar is
+let openai = null;
+if (OPENAI_API_KEY) {
+  openai = new OpenAI({
+    apiKey: OPENAI_API_KEY,
+    dangerouslyAllowBrowser: true // Voor development - verplaats naar Cloud Function voor productie!
+  });
+}
 
 /**
  * Genereer een verhaal over de etappe ontwikkelingen
@@ -22,6 +32,11 @@ const openai = new OpenAI({
  * @param {Array} newStandings - Klassement na deze etappe
  */
 export const generateStageStory = async (stageNumber, stageResults, oldStandings, newStandings) => {
+  // Check if OpenAI is available
+  if (!openai) {
+    throw new Error('OpenAI API key niet geconfigureerd. Voeg REACT_APP_OPENAI_API_KEY toe aan je .env bestand, of implementeer Firebase Cloud Function voor productie.');
+  }
+  
   try {
     // Bereid de data voor voor het prompt
     const klassementText = newStandings

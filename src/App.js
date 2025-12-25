@@ -14,6 +14,7 @@ import EventList from './components/Events/EventList';
 import TeamBuilder from './components/Team/TeamBuilder';
 import Leaderboard from './components/Leaderboard/Leaderboard';
 import StageResults from './components/Admin/StageResults';
+import EventManagement from './components/Admin/EventManagement';
 import Navigation from './components/Navigation/Navigation';
 import './App.css';
 
@@ -75,6 +76,18 @@ function App() {
               user ? (
                 <ProtectedAdminRoute user={user}>
                   <StageResults user={user} />
+                </ProtectedAdminRoute>
+              ) : (
+                <Navigate to="/login" />
+              )
+            } 
+          />
+          <Route 
+            path="/admin/event-management" 
+            element={
+              user ? (
+                <ProtectedAdminRoute user={user}>
+                  <EventManagement />
                 </ProtectedAdminRoute>
               ) : (
                 <Navigate to="/login" />

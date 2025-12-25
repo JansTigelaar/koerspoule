@@ -1,13 +1,13 @@
 {
   "files": {
-    "main.css": "/koerspoule/static/css/main.0b5ce9ab.css",
-    "main.js": "/koerspoule/static/js/main.2c3e5641.js",
+    "main.css": "/koerspoule/static/css/main.4e733ddf.css",
+    "main.js": "/koerspoule/static/js/main.33556114.js",
     "index.html": "/koerspoule/index.html",
-    "main.0b5ce9ab.css.map": "/koerspoule/static/css/main.0b5ce9ab.css.map",
-    "main.2c3e5641.js.map": "/koerspoule/static/js/main.2c3e5641.js.map"
+    "main.4e733ddf.css.map": "/koerspoule/static/css/main.4e733ddf.css.map",
+    "main.33556114.js.map": "/koerspoule/static/js/main.33556114.js.map"
   },
   "entrypoints": [
-    "static/css/main.0b5ce9ab.css",
-    "static/js/main.2c3e5641.js"
+    "static/css/main.4e733ddf.css",
+    "static/js/main.33556114.js"
   ]
 }

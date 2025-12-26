@@ -2,13 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, doc, updateDoc, addDoc, setDoc } from 'firebase/firestore';
-import { db } from '../../firebase/config';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from '../../firebase/config';
 import { 
   parseStageResults, 
   validateStageResults, 
   updateTeamsWithStageResults 
 } from '../../utils/pointsCalculator';
-import { generateStageStory } from '../../utils/storyGenerator';
 import { Upload, AlertCircle, CheckCircle, Loader } from 'lucide-react';
 import StageStory from './StageStory';
 import './StageResults.css';
@@ -79,14 +79,16 @@ function StageResults({ user }) {
         }))
         .sort((a, b) => b.totalPoints - a.totalPoints);
       
-      const generatedStory = await generateStageStory(
-        stage,
-        stageResults,
-        oldStandings,
-        newStandings
-      );
+      // Call Cloud Function to generate story
+      const generateStoryFunction = httpsCallable(functions, 'generateStageStory');
+      const result = await generateStoryFunction({
+        stageNumber: stage,
+        stageResults: stageResults,
+        oldStandings: oldStandings,
+        newStandings: newStandings
+      });
       
-      setStory(generatedStory.story);
+      setStory(result.data.story);
     } catch (error) {
       console.error('Error generating story:', error);
       setStory({ error: error.message });

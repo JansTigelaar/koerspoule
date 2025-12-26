@@ -3,6 +3,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getFunctions } from 'firebase/functions';
 
 // Firebase configuratie
 // VERVANG DEZE WAARDEN MET JE EIGEN FIREBASE PROJECT CREDENTIALS
@@ -19,9 +20,10 @@ const firebaseConfig = {
 // Firebase initialiseren
 const app = initializeApp(firebaseConfig);
 
-// Auth en Firestore instanties exporteren
+// Auth, Firestore en Functions instanties exporteren
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const functions = getFunctions(app);
 
 /*
 SETUP INSTRUCTIES:

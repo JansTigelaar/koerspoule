@@ -21,6 +21,9 @@ function TeamBuilder({ user }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [existingTeam, setExistingTeam] = useState(null);
+  const [subpoules, setSubpoules] = useState([]);
+  const [selectedSubpouleIds, setSelectedSubpouleIds] = useState([]);
+  const [userMemberships, setUserMemberships] = useState([]);
 
   useEffect(() => {
     loadEventAndTeam();
@@ -50,6 +53,30 @@ function TeamBuilder({ user }) {
         setEvent({ id: eventDoc.id, ...eventDoc.data() });
       }
 
+      // Laad subpoules voor dit event waar de user lid van is
+      const subpoulesQuery = query(
+        collection(db, 'subpoules'),
+        where('eventId', '==', eventId)
+      );
+      const subpoulesSnapshot = await getDocs(subpoulesQuery);
+      const allSubpoules = subpoulesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      // Laad user memberships
+      const membershipsQuery = query(
+        collection(db, 'subpoule_members'),
+        where('userId', '==', user.uid)
+      );
+      const membershipsSnapshot = await getDocs(membershipsQuery);
+      const membershipIds = membershipsSnapshot.docs.map(doc => doc.data().subpouleId);
+      
+      // Filter subpoules waar user lid van is
+      const userSubpoules = allSubpoules.filter(s => membershipIds.includes(s.id));
+      setSubpoules(userSubpoules);
+      setUserMemberships(membershipIds);
+
       // Laad bestaand team indien aanwezig
       const teamsQuery = query(
         collection(db, 'teams'),
@@ -63,6 +90,7 @@ function TeamBuilder({ user }) {
         setExistingTeam({ id: teamsSnapshot.docs[0].id, ...teamData });
         setTeamName(teamData.teamName);
         setSelections(teamData.selections || {});
+        setSelectedSubpouleIds(teamData.subpouleIds || []);
       }
     } catch (error) {
       console.error('Fout bij laden:', error);
@@ -115,6 +143,7 @@ function TeamBuilder({ user }) {
         userId: user.uid,
         userName: user.displayName,
         selections,
+        subpouleIds: selectedSubpouleIds,
         updatedAt: new Date().toISOString(),
         totalPoints: 0
       };
@@ -165,6 +194,48 @@ function TeamBuilder({ user }) {
             maxLength={50}
           />
         </div>
+
+        {subpoules.length > 0 && (
+          <div className="subpoule-selection">
+            <label>Deelnemen aan subpoules (optioneel):</label>
+            <div className="subpoule-checkboxes">
+              {subpoules.map(subpoule => (
+                <label key={subpoule.id} className="subpoule-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={selectedSubpouleIds.includes(subpoule.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedSubpouleIds([...selectedSubpouleIds, subpoule.id]);
+                      } else {
+                        setSelectedSubpouleIds(selectedSubpouleIds.filter(id => id !== subpoule.id));
+                      }
+                    }}
+                  />
+                  <span>{subpoule.name}</span>
+                </label>
+              ))}
+            </div>
+            <p className="help-text">
+              Je bent lid van {subpoules.length} subpoule{subpoules.length !== 1 ? 's' : ''}. 
+              Selecteer voor welke subpoule(s) je met dit team wilt deelnemen.
+              <br />
+              <a href={`/event/${eventId}/subpoules`}>Bekijk alle subpoules of maak een nieuwe aan</a>
+            </p>
+          </div>
+        )}
+
+        {subpoules.length === 0 && (
+          <div className="no-subpoules-notice">
+            <p>Je bent nog geen lid van een subpoule voor dit evenement.</p>
+            <button
+              onClick={() => navigate(`/event/${eventId}/subpoules`)}
+              className="btn-secondary-small"
+            >
+              Bekijk subpoules
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="categories-grid">

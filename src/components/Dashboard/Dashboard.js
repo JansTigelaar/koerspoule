@@ -10,6 +10,7 @@ import './Dashboard.css';
 function Dashboard({ user }) {
   const [activeEvents, setActiveEvents] = useState([]);
   const [userTeams, setUserTeams] = useState([]);
+  const [userSubpoules, setUserSubpoules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [latestStory, setLatestStory] = useState(null);
   const navigate = useNavigate();
@@ -53,6 +54,27 @@ function Dashboard({ user }) {
         ...doc.data()
       }));
       setUserTeams(teams);
+
+      // Laad gebruiker subpoules
+      const membershipsQuery = query(
+        collection(db, 'subpoule_members'),
+        where('userId', '==', user.uid)
+      );
+      const membershipsSnapshot = await getDocs(membershipsQuery);
+      const subpouleIds = membershipsSnapshot.docs.map(doc => doc.data().subpouleId);
+      
+      if (subpouleIds.length > 0) {
+        const subpoulesQuery = query(
+          collection(db, 'subpoules'),
+          where('__name__', 'in', subpouleIds.slice(0, 10)) // Firestore limiet van 10
+        );
+        const subpoulesSnapshot = await getDocs(subpoulesQuery);
+        const subpoules = subpoulesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setUserSubpoules(subpoules);
+      }
 
       // Laad laatste verhaal
       if (events.length > 0) {
@@ -111,7 +133,35 @@ function Dashboard({ user }) {
             <p>Mijn teams</p>
           </div>
         </div>
+        <div className="stat-card">
+          <Trophy size={32} />
+          <div>
+            <h3>{userSubpoules.length}</h3>
+            <p>Mijn subpoules</p>
+          </div>
+        </div>
       </div>
+
+      {userSubpoules.length > 0 && (
+        <section className="subpoules-section">
+          <h2>Mijn subpoules</h2>
+          <div className="subpoules-grid-small">
+            {userSubpoules.slice(0, 3).map(subpoule => {
+              const event = activeEvents.find(e => e.id === subpoule.eventId);
+              return (
+                <div 
+                  key={subpoule.id} 
+                  className="subpoule-card-small"
+                  onClick={() => navigate(`/subpoule/${subpoule.id}/leaderboard`)}
+                >
+                  <h4>{subpoule.name}</h4>
+                  {event && <p className="event-name">{event.name}</p>}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {latestStory && latestStory.story && (
         <section className="story-section">

@@ -138,6 +138,12 @@ function EventList({ user }) {
                   {event.status === 'completed' ? 'Afgelopen' : 'Team maken'}
                 </button>
                 <button
+                  onClick={() => navigate(`/event/${event.id}/subpoules`)}
+                  className="btn-secondary"
+                >
+                  Subpoules
+                </button>
+                <button
                   onClick={() => navigate(`/leaderboard/${event.id}`)}
                   className="btn-secondary"
                 >

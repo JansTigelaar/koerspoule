@@ -15,6 +15,9 @@ import TeamBuilder from './components/Team/TeamBuilder';
 import Leaderboard from './components/Leaderboard/Leaderboard';
 import StageResults from './components/Admin/StageResults';
 import EventManagement from './components/Admin/EventManagement';
+import SubpouleList from './components/Subpoule/SubpouleList';
+import SubpouleCreate from './components/Subpoule/SubpouleCreate';
+import SubpouleLeaderboard from './components/Subpoule/SubpouleLeaderboard';
 import Navigation from './components/Navigation/Navigation';
 import './App.css';
 
@@ -69,6 +72,18 @@ function App() {
           <Route 
             path="/leaderboard/:eventId" 
             element={user ? <Leaderboard user={user} /> : <Navigate to="/login" />} 
+          />
+          <Route 
+            path="/event/:eventId/subpoules" 
+            element={user ? <SubpouleList user={user} /> : <Navigate to="/login" />} 
+          />
+          <Route 
+            path="/subpoule/create/:eventId" 
+            element={user ? <SubpouleCreate user={user} /> : <Navigate to="/login" />} 
+          />
+          <Route 
+            path="/subpoule/:subpouleId/leaderboard" 
+            element={user ? <SubpouleLeaderboard user={user} /> : <Navigate to="/login" />} 
           />
           <Route 
             path="/admin/stage-results" 

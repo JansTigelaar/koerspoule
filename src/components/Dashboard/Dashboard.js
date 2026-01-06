@@ -79,7 +79,7 @@ function Dashboard({ user }) {
       // Laad laatste verhaal
       if (events.length > 0) {
         const storyQuery = query(
-          collection(db, 'events'),
+          collection(db, 'stageResults'),
           where('eventId', '==', events[0].id)
         );
         const storySnapshot = await getDocs(storyQuery);

@@ -44,7 +44,7 @@ function App() {
   }
 
   return (
-    <Router basename="/koerspoule">
+    <Router>
       <div className="app">
         {user && <Navigation user={user} />}
         

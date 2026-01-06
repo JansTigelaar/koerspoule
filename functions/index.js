@@ -1,59 +1,51 @@
 // functions/index.js
 
-// Load environment variables from .env file (for local development)
-require('dotenv').config();
-
-const functions = require('firebase-functions');
+const { onCall } = require('firebase-functions/v2/https');
+const { defineString } = require('firebase-functions/params');
 const admin = require('firebase-admin');
 const OpenAI = require('openai');
 
 // Initialize Firebase Admin
 admin.initializeApp();
 
+// Define OPENAI_API_KEY parameter
+const openaiApiKey = defineString('OPENAI_API_KEY');
+
 /**
  * Cloud Function to generate AI story for a stage
  * HTTPS Callable function - can be called from the client with authentication
+ * Version 2.0 - Updated with Firebase Functions v2 params
  */
-exports.generateStageStory = functions.https.onCall(async (data, context) => {
+exports.generateStageStory = onCall(async (request) => {
   // Check if user is authenticated
-  if (!context.auth) {
-    throw new functions.https.HttpsError(
-      'unauthenticated',
-      'Je moet ingelogd zijn om een verhaal te genereren.'
-    );
+  if (!request.auth) {
+    throw new Error('Je moet ingelogd zijn om een verhaal te genereren.');
   }
 
   // Check if user is admin
   const userDoc = await admin.firestore()
     .collection('users')
-    .doc(context.auth.uid)
+    .doc(request.auth.uid)
     .get();
   
   if (!userDoc.exists || !userDoc.data().isAdmin) {
-    throw new functions.https.HttpsError(
-      'permission-denied',
-      'Je hebt geen toestemming om verhalen te genereren. Alleen admins kunnen dit doen.'
-    );
+    throw new Error('Je hebt geen toestemming om verhalen te genereren. Alleen admins kunnen dit doen.');
   }
 
-  // Get OpenAI API key from environment (supports both old and new methods)
-  const apiKey = process.env.OPENAI_API_KEY || functions.config().openai?.key;
+  // Get OpenAI API key from parameter
+  const apiKey = openaiApiKey.value();
+  
   if (!apiKey) {
-    throw new functions.https.HttpsError(
-      'failed-precondition',
-      'OpenAI API key niet geconfigureerd. Stel OPENAI_API_KEY environment variable in of gebruik: firebase functions:config:set openai.key="YOUR_KEY"'
-    );
+    console.error('OPENAI_API_KEY not configured');
+    throw new Error('OpenAI API key niet geconfigureerd. Neem contact op met de beheerder.');
   }
 
   // Extract parameters
-  const { stageNumber, stageResults, oldStandings, newStandings } = data;
+  const { stageNumber, stageResults, oldStandings, newStandings } = request.data;
 
   // Validate required parameters
   if (!stageNumber || !stageResults || !oldStandings || !newStandings) {
-    throw new functions.https.HttpsError(
-      'invalid-argument',
-      'Ontbrekende verplichte parameters: stageNumber, stageResults, oldStandings, newStandings'
-    );
+    throw new Error('Ontbrekende verplichte parameters: stageNumber, stageResults, oldStandings, newStandings');
   }
 
   try {
@@ -129,10 +121,7 @@ Begin met een pakkende opening over de etappe. Gebruik Nederlandse wielertermen.
 
   } catch (error) {
     console.error('Error generating story:', error);
-    throw new functions.https.HttpsError(
-      'internal',
-      `Er ging iets mis bij het genereren van het verhaal: ${error.message}`
-    );
+    throw new Error(`Er ging iets mis bij het genereren van het verhaal: ${error.message}`);
   }
 });
 

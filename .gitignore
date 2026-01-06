@@ -19,6 +19,9 @@
 
 # Firebase Functions environment
 functions/.env
+functions/.env.*
+.env
+.env.*
 
 npm-debug.log*
 yarn-debug.log*

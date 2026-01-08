@@ -184,8 +184,8 @@ function calculateStandingsChanges(oldStandings, newStandings) {
  * HTTPS Callable function - can be called from the admin panel
  */
 exports.fetchRaceResults = onCall({
-  memory: '1GiB',
-  timeoutSeconds: 60,
+  memory: '2GiB',
+  timeoutSeconds: 120,
 }, async (request) => {
   // Check if user is authenticated
   if (!request.auth) {
@@ -231,17 +231,21 @@ exports.fetchRaceResults = onCall({
 
     const page = await browser.newPage();
     
-    // Set user agent to mimic real browser
+    // Set realistic browser headers to avoid bot detection
     await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    await page.setExtraHTTPHeaders({
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    });
     
-    // Navigate to the race page
+    // Navigate to the race page with longer timeout
     await page.goto(raceUrl, {
-      waitUntil: 'networkidle2',
-      timeout: 30000,
+      waitUntil: 'domcontentloaded', // Less strict than networkidle2
+      timeout: 45000,
     });
 
-    // Wait a bit for dynamic content
-    await page.waitForTimeout(2000);
+    // Wait for page to load
+    await page.waitForTimeout(3000);
 
     let results;
     
@@ -269,7 +273,16 @@ exports.fetchRaceResults = onCall({
       await browser.close();
     }
     console.error('Error fetching race results:', error);
-    throw new Error(`Er ging iets mis bij het ophalen van de resultaten: ${error.message}`);
+    
+    // Provide more helpful error messages
+    let errorMessage = error.message;
+    if (error.message.includes('timeout') || error.message.includes('Navigation timeout')) {
+      errorMessage = 'De website reageert te traag of blokkeert de toegang. Probeer het later opnieuw of gebruik handmatige invoer.';
+    } else if (error.message.includes('net::ERR')) {
+      errorMessage = 'Kan de website niet bereiken. Controleer of de URL correct is.';
+    }
+    
+    throw new Error(`Er ging iets mis bij het ophalen van de resultaten: ${errorMessage}`);
   }
 });
 

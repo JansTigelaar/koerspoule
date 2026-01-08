@@ -245,7 +245,7 @@ exports.fetchRaceResults = onCall({
     });
 
     // Wait for page to load
-    await page.waitForTimeout(3000);
+    await new Promise(resolve => setTimeout(resolve, 3000));
 
     let results;
     

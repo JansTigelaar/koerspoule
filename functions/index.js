@@ -4,7 +4,8 @@ const { onCall } = require('firebase-functions/v2/https');
 const { defineString } = require('firebase-functions/params');
 const admin = require('firebase-admin');
 const OpenAI = require('openai');
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
+const chromium = require('@sparticuz/chromium');
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -220,17 +221,12 @@ exports.fetchRaceResults = onCall({
   try {
     console.log(`Fetching race results from: ${raceUrl}`);
     
-    // Launch Puppeteer browser
+    // Launch Puppeteer browser with serverless chromium
     browser = await puppeteer.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--disable-gpu',
-        '--window-size=1920x1080',
-      ],
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
     });
 
     const page = await browser.newPage();

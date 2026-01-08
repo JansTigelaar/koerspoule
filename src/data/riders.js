@@ -1302,8 +1302,29 @@ export const getRiderByNumber = (number) => {
 };
 
 export const getRiderByName = (name) => {
-  const searchName = name.trim().toUpperCase();
-  return RIDERS.find(r => r.name.toUpperCase() === searchName);
+  // Normalize the search name: uppercase, remove accents
+  const normalize = (str) => {
+    return str.toUpperCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Remove accents
+      .replace(/[^A-Z\s]/g, ''); // Remove non-letters except spaces
+  };
+  
+  const searchName = normalize(name.trim());
+  
+  // Try exact match first
+  let rider = RIDERS.find(r => normalize(r.name) === searchName);
+  
+  // If not found, try matching just the last name (first word)
+  if (!rider) {
+    const searchLastName = searchName.split(' ')[0];
+    rider = RIDERS.find(r => {
+      const riderLastName = normalize(r.name).split(' ')[0];
+      return riderLastName === searchLastName;
+    });
+  }
+  
+  return rider;
 };
 
 export const searchRiders = (query) => {

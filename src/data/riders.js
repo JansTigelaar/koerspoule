@@ -1301,6 +1301,11 @@ export const getRiderByNumber = (number) => {
   return RIDERS.find(r => r.number === number);
 };
 
+export const getRiderByName = (name) => {
+  const searchName = name.trim().toUpperCase();
+  return RIDERS.find(r => r.name.toUpperCase() === searchName);
+};
+
 export const searchRiders = (query) => {
   const q = query.toLowerCase();
   return RIDERS.filter(r => 

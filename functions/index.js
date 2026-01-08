@@ -297,8 +297,12 @@ async function parseFirstCyclingResults(page) {
     // Look for the results table
     const tables = document.querySelectorAll('table.tablesorter');
     
+    console.log(`Found ${tables.length} tables`);
+    
     for (const table of tables) {
       const rows = table.querySelectorAll('tbody tr');
+      
+      console.log(`Table has ${rows.length} rows`);
       
       for (const row of rows) {
         const cells = row.querySelectorAll('td');
@@ -322,9 +326,12 @@ async function parseFirstCyclingResults(page) {
             if (link) {
               riderName = link.textContent.trim();
               
-              // Try to find rider number in the row
+              // Try to find rider number in the row text
               const rowText = row.textContent;
-              const numberMatch = rowText.match(/\(#?(\d+)\)/) || rowText.match(/#(\d+)/);
+              // Match patterns like (#123), #123, or standalone numbers in parentheses
+              const numberMatch = rowText.match(/\(#?(\d+)\)/) || 
+                                 rowText.match(/#(\d+)/) || 
+                                 rowText.match(/\((\d{1,3})\)/);
               if (numberMatch) {
                 riderNumber = parseInt(numberMatch[1], 10);
               }
@@ -351,6 +358,8 @@ async function parseFirstCyclingResults(page) {
     
     return resultsArray;
   });
+  
+  console.log(`Parsed ${results.length} results from FirstCycling`);
   
   if (results.length === 0) {
     throw new Error('Geen resultaten gevonden op de pagina. Zorg ervoor dat de race al is afgelopen en de resultaten zijn gepubliceerd.');

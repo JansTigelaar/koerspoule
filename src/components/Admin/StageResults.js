@@ -174,22 +174,50 @@ function StageResults({ user }) {
 
       const { results } = result.data;
 
+      // Try to match rider names to our local database to get rider numbers
+      const { getRiderByName } = await import('../../data/riders');
+      
       // Format results into text format for the textarea
       const formattedResults = results
         .map(r => {
-          if (r.riderNumber) {
-            return `${r.position}. ${r.name} (#${r.riderNumber})`;
+          // Try to find rider in local database by name
+          let riderNumber = r.riderNumber;
+          
+          if (!riderNumber) {
+            // Try to match by name
+            try {
+              const rider = getRiderByName(r.name);
+              if (rider) {
+                riderNumber = rider.number;
+              }
+            } catch (e) {
+              // Rider not found, that's ok
+            }
+          }
+          
+          if (riderNumber) {
+            return `${r.position}. ${r.name} (#${riderNumber})`;
           } else {
-            return `${r.position}. ${r.name}`;
+            // No number found - admin will need to add it manually
+            return `${r.position}. ${r.name} (?)`;
           }
         })
         .join('\n');
 
       setResultsText(formattedResults);
-      setMessage({ 
-        type: 'success', 
-        text: `${results.length} resultaten opgehaald! Controleer de gegevens en klik op "Resultaten Verwerken".` 
-      });
+      
+      const missingNumbers = results.filter(r => !r.riderNumber).length;
+      if (missingNumbers > 0) {
+        setMessage({ 
+          type: 'success', 
+          text: `${results.length} resultaten opgehaald! Let op: ${missingNumbers} renners missen rugnummers (gemarkeerd met ?). Voeg deze handmatig toe of verwijder de regels.` 
+        });
+      } else {
+        setMessage({ 
+          type: 'success', 
+          text: `${results.length} resultaten opgehaald! Controleer de gegevens en klik op "Resultaten Verwerken".` 
+        });
+      }
     } catch (error) {
       console.error('Error fetching results:', error);
       setMessage({ 

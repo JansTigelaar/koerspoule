@@ -21,9 +21,10 @@ function TeamBuilder({ user }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [existingTeam, setExistingTeam] = useState(null);
-  const [subpoules, setSubpoules] = useState([]);
-  const [selectedSubpouleIds, setSelectedSubpouleIds] = useState([]);
-  const [userMemberships, setUserMemberships] = useState([]);
+  
+  // Event-specifieke data
+  const [eventCategories, setEventCategories] = useState([]);
+  const [eventRiders, setEventRiders] = useState([]);
 
   useEffect(() => {
     loadEventAndTeam();
@@ -33,49 +34,45 @@ function TeamBuilder({ user }) {
     if (searchQuery && activeCategory) {
       // Eerst filteren op zoekterm
       const results = searchRiders(searchQuery);
+      // Filter op event-specifieke renners
+      const availableResults = results.filter(r => 
+        eventRiders.find(er => er.id === r.id)
+      );
       // Dan filteren op toegestane renners voor deze categorie
-      const allowedRiders = getAllowedRidersForCategory(activeCategory, results);
+      const allowedRiders = getAllowedRidersForCategory(activeCategory, availableResults);
       setFilteredRiders(allowedRiders);
     } else if (activeCategory) {
       // Als er geen zoekterm is, toon alle toegestane renners voor deze categorie
-      const allowedRiders = getAllowedRidersForCategory(activeCategory, RIDERS);
+      const allowedRiders = getAllowedRidersForCategory(activeCategory, eventRiders);
       setFilteredRiders(allowedRiders);
     } else {
       setFilteredRiders([]);
     }
-  }, [searchQuery, activeCategory]);
+  }, [searchQuery, activeCategory, eventRiders]);
 
   const loadEventAndTeam = async () => {
     try {
       // Laad event
       const eventDoc = await getDoc(doc(db, 'events', eventId));
       if (eventDoc.exists()) {
-        setEvent({ id: eventDoc.id, ...eventDoc.data() });
+        const eventData = { id: eventDoc.id, ...eventDoc.data() };
+        setEvent(eventData);
+        
+        // Laad event-specifieke categorieën of gebruik defaults
+        if (eventData.categories && eventData.categories.length > 0) {
+          setEventCategories(eventData.categories);
+        } else {
+          setEventCategories(CATEGORIES);
+        }
+        
+        // Laad event-specifieke renners of gebruik alle renners
+        if (eventData.availableRiders && eventData.availableRiders.length > 0) {
+          const availableRiders = RIDERS.filter(r => eventData.availableRiders.includes(r.id));
+          setEventRiders(availableRiders);
+        } else {
+          setEventRiders(RIDERS);
+        }
       }
-
-      // Laad subpoules voor dit event waar de user lid van is
-      const subpoulesQuery = query(
-        collection(db, 'subpoules'),
-        where('eventId', '==', eventId)
-      );
-      const subpoulesSnapshot = await getDocs(subpoulesQuery);
-      const allSubpoules = subpoulesSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      
-      // Laad user memberships
-      const membershipsQuery = query(
-        collection(db, 'subpoule_members'),
-        where('userId', '==', user.uid)
-      );
-      const membershipsSnapshot = await getDocs(membershipsQuery);
-      const membershipIds = membershipsSnapshot.docs.map(doc => doc.data().subpouleId);
-      
-      // Filter subpoules waar user lid van is
-      const userSubpoules = allSubpoules.filter(s => membershipIds.includes(s.id));
-      setSubpoules(userSubpoules);
-      setUserMemberships(membershipIds);
 
       // Laad bestaand team indien aanwezig
       const teamsQuery = query(
@@ -90,7 +87,6 @@ function TeamBuilder({ user }) {
         setExistingTeam({ id: teamsSnapshot.docs[0].id, ...teamData });
         setTeamName(teamData.teamName);
         setSelections(teamData.selections || {});
-        setSelectedSubpouleIds(teamData.subpouleIds || []);
       }
     } catch (error) {
       console.error('Fout bij laden:', error);
@@ -118,7 +114,7 @@ function TeamBuilder({ user }) {
     console.log('=== SAVE DEBUG ===');
     console.log('Team naam:', teamName);
     console.log('Aantal geselecteerde renners:', Object.keys(selections).length);
-    console.log('Totaal aantal categorieën:', CATEGORIES.length);
+    console.log('Totaal aantal categorieën:', eventCategories.length);
     console.log('Selections:', selections);
     console.log('Event ID:', eventId);
     console.log('User ID:', user.uid);
@@ -129,8 +125,8 @@ function TeamBuilder({ user }) {
       return;
     }
 
-    if (Object.keys(selections).length !== CATEGORIES.length) {
-      alert(`Selecteer een renner voor alle ${CATEGORIES.length} categorieën. Je hebt er ${Object.keys(selections).length} geselecteerd.`);
+    if (Object.keys(selections).length !== eventCategories.length) {
+      alert(`Selecteer een renner voor alle ${eventCategories.length} categorieën. Je hebt er ${Object.keys(selections).length} geselecteerd.`);
       return;
     }
 
@@ -143,7 +139,7 @@ function TeamBuilder({ user }) {
         userId: user.uid,
         userName: user.displayName,
         selections,
-        subpouleIds: selectedSubpouleIds,
+        subpouleIds: existingTeam?.subpouleIds || [],
         updatedAt: new Date().toISOString(),
         totalPoints: 0
       };
@@ -194,52 +190,10 @@ function TeamBuilder({ user }) {
             maxLength={50}
           />
         </div>
-
-        {subpoules.length > 0 && (
-          <div className="subpoule-selection">
-            <label>Deelnemen aan subpoules (optioneel):</label>
-            <div className="subpoule-checkboxes">
-              {subpoules.map(subpoule => (
-                <label key={subpoule.id} className="subpoule-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={selectedSubpouleIds.includes(subpoule.id)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedSubpouleIds([...selectedSubpouleIds, subpoule.id]);
-                      } else {
-                        setSelectedSubpouleIds(selectedSubpouleIds.filter(id => id !== subpoule.id));
-                      }
-                    }}
-                  />
-                  <span>{subpoule.name}</span>
-                </label>
-              ))}
-            </div>
-            <p className="help-text">
-              Je bent lid van {subpoules.length} subpoule{subpoules.length !== 1 ? 's' : ''}. 
-              Selecteer voor welke subpoule(s) je met dit team wilt deelnemen.
-              <br />
-              <a href={`/event/${eventId}/subpoules`}>Bekijk alle subpoules of maak een nieuwe aan</a>
-            </p>
-          </div>
-        )}
-
-        {subpoules.length === 0 && (
-          <div className="no-subpoules-notice">
-            <p>Je bent nog geen lid van een subpoule voor dit evenement.</p>
-            <button
-              onClick={() => navigate(`/event/${eventId}/subpoules`)}
-              className="btn-secondary-small"
-            >
-              Bekijk subpoules
-            </button>
-          </div>
-        )}
       </div>
 
       <div className="categories-grid">
-        {CATEGORIES.map((category, index) => {
+        {eventCategories.map((category, index) => {
           const selectedRider = selections[category.id];
           
           return (
@@ -279,13 +233,13 @@ function TeamBuilder({ user }) {
       <div className="team-actions">
         <div className="team-progress">
           <p>
-            Geselecteerde renners: <strong>{Object.keys(selections).length}</strong> / <strong>{CATEGORIES.length}</strong>
+            Geselecteerde renners: <strong>{Object.keys(selections).length}</strong> / <strong>{eventCategories.length}</strong>
           </p>
         </div>
         <button
           onClick={handleSave}
           className="btn-save"
-          disabled={saving || Object.keys(selections).length !== CATEGORIES.length || !teamName.trim()}
+          disabled={saving || Object.keys(selections).length !== eventCategories.length || !teamName.trim()}
         >
           <Save size={20} />
           {saving ? 'Opslaan...' : existingTeam ? 'Team bijwerken' : 'Team opslaan'}
@@ -298,7 +252,7 @@ function TeamBuilder({ user }) {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>
-                Selecteer renner voor: {CATEGORIES.find(c => c.id === activeCategory)?.name}
+                Selecteer renner voor: {eventCategories.find(c => c.id === activeCategory)?.name}
               </h2>
               <button onClick={() => setActiveCategory(null)} className="modal-close">
                 <X size={24} />

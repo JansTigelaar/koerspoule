@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
-import { Trophy, Medal, Award, ArrowLeft, Users } from 'lucide-react';
+import { Trophy, Medal, Award, ArrowLeft, Users, Plus, UserMinus } from 'lucide-react';
 import '../Leaderboard/Leaderboard.css';
 import './Subpoule.css';
 
@@ -13,7 +13,10 @@ function SubpouleLeaderboard({ user }) {
   const [event, setEvent] = useState(null);
   const [teams, setTeams] = useState([]);
   const [members, setMembers] = useState([]);
+  const [userTeam, setUserTeam] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [joining, setJoining] = useState(false);
+  const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -53,6 +56,10 @@ function SubpouleLeaderboard({ user }) {
           ...doc.data()
         }));
 
+        // Vind het team van de huidige gebruiker
+        const myTeam = allTeams.find(t => t.userId === user.uid);
+        setUserTeam(myTeam);
+
         // Filter teams die bij deze subpoule horen
         const subpouleTeams = allTeams.filter(team => 
           team.subpouleIds && team.subpouleIds.includes(subpouleId)
@@ -66,6 +73,59 @@ function SubpouleLeaderboard({ user }) {
       console.error('Fout bij laden subpoule klassement:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleJoinWithMyTeam = async () => {
+    if (!userTeam || !subpouleId) return;
+    
+    setJoining(true);
+    try {
+      // Voeg subpouleId toe aan het bestaande team
+      const currentSubpouleIds = userTeam.subpouleIds || [];
+      if (!currentSubpouleIds.includes(subpouleId)) {
+        await updateDoc(doc(db, 'teams', userTeam.id), {
+          subpouleIds: [...currentSubpouleIds, subpouleId]
+        });
+        
+        // Reload data
+        await loadData();
+      }
+    } catch (error) {
+      console.error('Fout bij toevoegen team aan subpoule:', error);
+      alert('Er ging iets mis. Probeer het opnieuw.');
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  const handleLeaveSubpoule = async () => {
+    if (!userTeam || !subpouleId) return;
+    
+    const confirmLeave = window.confirm(
+      `Weet je zeker dat je deze subpoule wilt verlaten met je team "${userTeam.teamName}"? Je kunt later altijd weer terugkomen.`
+    );
+    
+    if (!confirmLeave) return;
+    
+    setLeaving(true);
+    try {
+      // Verwijder subpouleId van het team
+      const currentSubpouleIds = userTeam.subpouleIds || [];
+      const updatedSubpouleIds = currentSubpouleIds.filter(id => id !== subpouleId);
+      
+      await updateDoc(doc(db, 'teams', userTeam.id), {
+        subpouleIds: updatedSubpouleIds
+      });
+      
+      // Reload data
+      await loadData();
+      alert('Je hebt de subpoule verlaten.');
+    } catch (error) {
+      console.error('Fout bij verlaten subpoule:', error);
+      alert('Er ging iets mis. Probeer het opnieuw.');
+    } finally {
+      setLeaving(false);
     }
   };
 
@@ -116,6 +176,17 @@ function SubpouleLeaderboard({ user }) {
             <strong>{teams.length}</strong> teams
           </div>
         </div>
+        {userTeam && teams.some(t => t.id === userTeam.id) && (
+          <button 
+            onClick={handleLeaveSubpoule} 
+            className="btn-leave-subpoule"
+            disabled={leaving}
+            title="Verlaat deze subpoule"
+          >
+            <UserMinus size={20} />
+            {leaving ? 'Verlaten...' : 'Subpoule verlaten'}
+          </button>
+        )}
       </div>
 
       {subpoule.description && (
@@ -127,49 +198,80 @@ function SubpouleLeaderboard({ user }) {
       {teams.length === 0 ? (
         <div className="no-teams-message">
           <p>Nog geen teams in deze subpoule</p>
-          <p className="subtitle">Maak een team aan en selecteer deze subpoule om deel te nemen!</p>
-          <button onClick={() => navigate(`/team/${subpoule.eventId}`)} className="btn-primary">
-            Team maken
-          </button>
+          {userTeam ? (
+            <>
+              <p className="subtitle">Je hebt al een team voor dit evenement. Voeg het toe aan deze subpoule!</p>
+              <button 
+                onClick={handleJoinWithMyTeam} 
+                className="btn-primary"
+                disabled={joining}
+              >
+                <Plus size={20} />
+                {joining ? 'Toevoegen...' : `Deelnemen met "${userTeam.teamName}"`}
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="subtitle">Maak eerst een team aan voor dit evenement!</p>
+              <button onClick={() => navigate(`/team/${subpoule.eventId}`)} className="btn-primary">
+                Team maken
+              </button>
+            </>
+          )}
         </div>
       ) : (
-        <div className="leaderboard-table">
-          <table>
-            <thead>
-              <tr>
-                <th className="rank-col">Rang</th>
-                <th>Team</th>
-                <th>Speler</th>
-                <th className="points-col">Punten</th>
-              </tr>
-            </thead>
-            <tbody>
-              {teams.map((team, index) => (
-                <tr 
-                  key={team.id}
-                  className={team.userId === user.uid ? 'user-team' : ''}
-                >
-                  <td className="rank-col">
-                    <div className="rank-cell">
-                      {getRankIcon(index + 1)}
-                      <span className="rank-number">{index + 1}</span>
-                    </div>
-                  </td>
-                  <td className="team-name">
-                    {team.teamName}
-                    {team.userId === user.uid && (
-                      <span className="you-badge">Jij</span>
-                    )}
-                  </td>
-                  <td className="user-name">{team.userName}</td>
-                  <td className="points-col">
-                    <strong>{team.totalPoints || 0}</strong>
-                  </td>
+        <>
+          {userTeam && !teams.some(t => t.id === userTeam.id) && (
+            <div className="join-subpoule-banner">
+              <p>Je hebt het team "{userTeam.teamName}" voor dit evenement. Wil je deelnemen aan deze subpoule?</p>
+              <button 
+                onClick={handleJoinWithMyTeam} 
+                className="btn-primary"
+                disabled={joining}
+              >
+                <Plus size={20} />
+                {joining ? 'Toevoegen...' : 'Deelnemen met mijn team'}
+              </button>
+            </div>
+           )}
+          <div className="leaderboard-table">
+            <table>
+              <thead>
+                <tr>
+                  <th className="rank-col">Rang</th>
+                  <th>Team</th>
+                  <th>Speler</th>
+                  <th className="points-col">Punten</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {teams.map((team, index) => (
+                  <tr 
+                    key={team.id}
+                    className={team.userId === user.uid ? 'user-team' : ''}
+                  >
+                    <td className="rank-col">
+                      <div className="rank-cell">
+                        {getRankIcon(index + 1)}
+                        <span className="rank-number">{index + 1}</span>
+                      </div>
+                    </td>
+                    <td className="team-name">
+                      {team.teamName}
+                      {team.userId === user.uid && (
+                        <span className="you-badge">Jij</span>
+                      )}
+                    </td>
+                    <td className="user-name">{team.userName}</td>
+                    <td className="points-col">
+                      <strong>{team.totalPoints || 0}</strong>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {subpoule.joinCode && members.some(m => m.userId === user.uid && m.role === 'admin') && (

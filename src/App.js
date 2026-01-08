@@ -15,6 +15,7 @@ import TeamBuilder from './components/Team/TeamBuilder';
 import Leaderboard from './components/Leaderboard/Leaderboard';
 import StageResults from './components/Admin/StageResults';
 import EventManagement from './components/Admin/EventManagement';
+import EventBuilder from './components/Admin/EventBuilder';
 import SubpouleList from './components/Subpoule/SubpouleList';
 import SubpouleCreate from './components/Subpoule/SubpouleCreate';
 import SubpouleLeaderboard from './components/Subpoule/SubpouleLeaderboard';
@@ -103,6 +104,18 @@ function App() {
               user ? (
                 <ProtectedAdminRoute user={user}>
                   <EventManagement />
+                </ProtectedAdminRoute>
+              ) : (
+                <Navigate to="/login" />
+              )
+            } 
+          />
+          <Route 
+            path="/admin/event-builder" 
+            element={
+              user ? (
+                <ProtectedAdminRoute user={user}>
+                  <EventBuilder />
                 </ProtectedAdminRoute>
               ) : (
                 <Navigate to="/login" />

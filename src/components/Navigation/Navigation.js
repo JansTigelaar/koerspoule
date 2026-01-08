@@ -5,7 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../../firebase/config';
-import { Home, Calendar, LogOut, User, Settings, Shield } from 'lucide-react';
+import { Home, Calendar, LogOut, User, Settings, Shield, Plus } from 'lucide-react';
 import './Navigation.css';
 
 function Navigation({ user }) {
@@ -55,6 +55,10 @@ function Navigation({ user }) {
           </Link>
           {isAdmin && (
             <>
+              <Link to="/admin/event-builder" className="nav-link nav-link-admin">
+                <Plus size={20} />
+                <span>Event Aanmaken</span>
+              </Link>
               <Link to="/admin/stage-results" className="nav-link nav-link-admin">
                 <Settings size={20} />
                 <span>Resultaten</span>

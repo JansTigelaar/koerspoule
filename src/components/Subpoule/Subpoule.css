@@ -388,6 +388,7 @@
   display: flex;
   gap: 1rem;
   margin-bottom: 2rem;
+  flex-wrap: wrap;
 }
 
 .info-card {
@@ -399,6 +400,7 @@
   background: white;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
+  min-width: 200px;
 }
 
 .info-card svg {
@@ -409,6 +411,40 @@
   font-size: 1.5rem;
   color: #1a1a1a;
 }
+
+.btn-leave-subpoule {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: white;
+  color: #dc2626;
+  border: 2px solid #dc2626;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-leave-subpoule:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #b91c1c;
+  color: #b91c1c;
+}
+
+.btn-leave-subpoule:disabled {
+  background: #f3f4f6;
+  color: #9ca3af;
+  border-color: #d1d5db;
+  cursor: not-allowed;
+}
+
+.btn-leave-subpoule svg {
+  stroke-width: 2;
+}
+
 
 .subpoule-description-box {
   background: #f8fafc;
@@ -440,6 +476,31 @@
 
 .no-teams-message .btn-primary {
   margin-top: 1.5rem;
+}
+
+.join-subpoule-banner {
+  background: #eff6ff;
+  border: 2px solid #2563eb;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.join-subpoule-banner p {
+  margin: 0;
+  color: #1e40af;
+  font-size: 1rem;
+  font-weight: 500;
+  flex: 1;
+}
+
+.join-subpoule-banner .btn-primary {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .leaderboard-table {

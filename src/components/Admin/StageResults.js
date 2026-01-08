@@ -9,7 +9,7 @@ import {
   validateStageResults, 
   updateTeamsWithStageResults 
 } from '../../utils/pointsCalculator';
-import { Upload, AlertCircle, CheckCircle, Loader } from 'lucide-react';
+import { Upload, AlertCircle, CheckCircle, Loader, Download } from 'lucide-react';
 import StageStory from './StageStory';
 import './StageResults.css';
 
@@ -25,6 +25,8 @@ function StageResults({ user }) {
   const [generatingStory, setGeneratingStory] = useState(false);
   const [currentStageResultId, setCurrentStageResultId] = useState(null);
   const [storySaved, setStorySaved] = useState(false);
+  const [raceUrl, setRaceUrl] = useState('');
+  const [fetching, setFetching] = useState(false);
 
   useEffect(() => {
     loadEvents();
@@ -151,6 +153,51 @@ function StageResults({ user }) {
         type: 'error', 
         text: `Fout bij opslaan verhaal: ${error.message}` 
       });
+    }
+  };
+
+  const handleFetchResults = async () => {
+    if (!raceUrl.trim()) {
+      setMessage({ type: 'error', text: 'Voer een race URL in' });
+      return;
+    }
+
+    setFetching(true);
+    setMessage({ type: 'info', text: 'Resultaten ophalen...' });
+
+    try {
+      // Call Cloud Function to fetch results
+      const fetchRaceResultsFunction = httpsCallable(functions, 'fetchRaceResults');
+      const result = await fetchRaceResultsFunction({
+        raceUrl: raceUrl.trim(),
+      });
+
+      const { results } = result.data;
+
+      // Format results into text format for the textarea
+      const formattedResults = results
+        .map(r => {
+          if (r.riderNumber) {
+            return `${r.position}. ${r.name} (#${r.riderNumber})`;
+          } else {
+            return `${r.position}. ${r.name}`;
+          }
+        })
+        .join('\n');
+
+      setResultsText(formattedResults);
+      setMessage({ 
+        type: 'success', 
+        text: `${results.length} resultaten opgehaald! Controleer de gegevens en klik op "Resultaten Verwerken".` 
+      });
+    } catch (error) {
+      console.error('Error fetching results:', error);
+      setMessage({ 
+        type: 'error', 
+        text: `Fout bij ophalen resultaten: ${error.message}` 
+      });
+    } finally {
+      setFetching(false);
     }
   };
 
@@ -289,14 +336,54 @@ function StageResults({ user }) {
           />
         </div>
 
-        <div className="form-group">
-          <label htmlFor="results">Resultaten (formaat: positie naam rugnummer):</label>
-          <textarea
-            id="results"
-            rows="15"
-            value={resultsText}
-            onChange={(e) => setResultsText(e.target.value)}
-            placeholder="Bijvoorbeeld:
+        <div className="fetch-results-section">
+          <h3>Optie 1: Automatisch Ophalen</h3>
+          <div className="form-group">
+            <label htmlFor="raceUrl">Race URL (FirstCycling of ProCyclingStats):</label>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <input
+                type="url"
+                id="raceUrl"
+                value={raceUrl}
+                onChange={(e) => setRaceUrl(e.target.value)}
+                placeholder="https://firstcycling.com/race.php?r=17&y=2026&e=01"
+                style={{ flex: 1 }}
+              />
+              <button 
+                type="button"
+                onClick={handleFetchResults}
+                className="btn-secondary"
+                disabled={fetching || !raceUrl.trim()}
+              >
+                {fetching ? (
+                  <>
+                    <Loader size={20} className="spinning" />
+                    Ophalen...
+                  </>
+                ) : (
+                  <>
+                    <Download size={20} />
+                    Haal Op
+                  </>
+                )}
+              </button>
+            </div>
+            <small style={{ color: '#666', display: 'block', marginTop: '5px' }}>
+              Kopieer de URL van een race resultaten pagina van FirstCycling.com of ProCyclingStats.com
+            </small>
+          </div>
+        </div>
+
+        <div className="manual-entry-section">
+          <h3>Optie 2: Handmatig Invoeren</h3>
+          <div className="form-group">
+            <label htmlFor="results">Resultaten (formaat: positie naam rugnummer):</label>
+            <textarea
+              id="results"
+              rows="15"
+              value={resultsText}
+              onChange={(e) => setResultsText(e.target.value)}
+              placeholder="Bijvoorbeeld:
 1. POGAČAR Tadej (#1)
 2. VINGEGAARD Jonas (#11)
 3. EVENEPOEL Remco (#21)
@@ -308,15 +395,16 @@ Of simpeler:
 2. VINGEGAARD Jonas (11)
 3. EVENEPOEL Remco (21)
 ..."
-            required
-          />
+              required
+            />
+          </div>
         </div>
 
         <div className="instructions">
           <h3>Instructies:</h3>
           <ul>
-            <li>Ga naar Procyclingstats.com en zoek de etappe uitslag</li>
-            <li>Kopieer de top 20 (of meer) finishers</li>
+            <li><strong>Automatisch:</strong> Plak een race URL van FirstCycling of ProCyclingStats en klik op "Haal Op"</li>
+            <li><strong>Handmatig:</strong> Ga naar Procyclingstats.com en kopieer de top 20+ finishers</li>
             <li>Formaat: <code>1. NAAM (rugnummer)</code></li>
             <li>Elk resultaat op een nieuwe regel</li>
             <li>Alleen renners in de top 20 krijgen punten</li>

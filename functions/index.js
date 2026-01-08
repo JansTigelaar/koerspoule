@@ -4,6 +4,7 @@ const { onCall } = require('firebase-functions/v2/https');
 const { defineString } = require('firebase-functions/params');
 const admin = require('firebase-admin');
 const OpenAI = require('openai');
+const puppeteer = require('puppeteer');
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -175,4 +176,245 @@ function calculateStandingsChanges(oldStandings, newStandings) {
   changes.fallers.sort((a, b) => b.positions - a.positions);
 
   return changes;
+}
+
+/**
+ * Cloud Function to fetch race results from FirstCycling.com using Puppeteer
+ * HTTPS Callable function - can be called from the admin panel
+ */
+exports.fetchRaceResults = onCall({
+  memory: '1GiB',
+  timeoutSeconds: 60,
+}, async (request) => {
+  // Check if user is authenticated
+  if (!request.auth) {
+    throw new Error('Je moet ingelogd zijn om resultaten op te halen.');
+  }
+
+  // Check if user is admin
+  const userDoc = await admin.firestore()
+    .collection('users')
+    .doc(request.auth.uid)
+    .get();
+  
+  if (!userDoc.exists || !userDoc.data().isAdmin) {
+    throw new Error('Je hebt geen toestemming om resultaten op te halen. Alleen admins kunnen dit doen.');
+  }
+
+  // Extract parameters
+  const { raceUrl, source = 'firstcycling' } = request.data;
+
+  // Validate required parameters
+  if (!raceUrl) {
+    throw new Error('Ontbrekende verplichte parameter: raceUrl');
+  }
+
+  // Validate URL format
+  if (!raceUrl.startsWith('https://firstcycling.com/race.php') && 
+      !raceUrl.startsWith('https://www.procyclingstats.com/race/')) {
+    throw new Error('Ongeldig race URL formaat. Gebruik een FirstCycling of ProCyclingStats URL.');
+  }
+
+  let browser;
+  
+  try {
+    console.log(`Fetching race results from: ${raceUrl}`);
+    
+    // Launch Puppeteer browser
+    browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--disable-gpu',
+        '--window-size=1920x1080',
+      ],
+    });
+
+    const page = await browser.newPage();
+    
+    // Set user agent to mimic real browser
+    await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    
+    // Navigate to the race page
+    await page.goto(raceUrl, {
+      waitUntil: 'networkidle2',
+      timeout: 30000,
+    });
+
+    // Wait a bit for dynamic content
+    await page.waitForTimeout(2000);
+
+    let results;
+    
+    // Parse results based on source
+    if (source === 'firstcycling' || raceUrl.includes('firstcycling.com')) {
+      results = await parseFirstCyclingResults(page);
+    } else {
+      results = await parseProcyclingStatsResults(page);
+    }
+
+    await browser.close();
+
+    console.log(`Successfully fetched ${results.length} results from ${raceUrl}`);
+
+    return {
+      success: true,
+      results,
+      source,
+      fetchedAt: new Date().toISOString(),
+      raceUrl,
+    };
+
+  } catch (error) {
+    if (browser) {
+      await browser.close();
+    }
+    console.error('Error fetching race results:', error);
+    throw new Error(`Er ging iets mis bij het ophalen van de resultaten: ${error.message}`);
+  }
+});
+
+/**
+ * Parse race results from FirstCycling.com
+ */
+async function parseFirstCyclingResults(page) {
+  const results = await page.evaluate(() => {
+    const resultsArray = [];
+    
+    // FirstCycling uses table.tablesorter for results
+    // Look for the results table
+    const tables = document.querySelectorAll('table.tablesorter');
+    
+    for (const table of tables) {
+      const rows = table.querySelectorAll('tbody tr');
+      
+      for (const row of rows) {
+        const cells = row.querySelectorAll('td');
+        
+        if (cells.length >= 2) {
+          // First cell usually contains position
+          const positionText = cells[0].textContent.trim();
+          const position = parseInt(positionText.replace(/\D/g, ''), 10);
+          
+          if (isNaN(position) || position < 1 || position > 50) {
+            continue;
+          }
+          
+          // Find rider name - usually in a link
+          let riderName = '';
+          let riderNumber = null;
+          
+          // Look through cells for rider name
+          for (let i = 1; i < cells.length; i++) {
+            const link = cells[i].querySelector('a[href*="rider.php"]');
+            if (link) {
+              riderName = link.textContent.trim();
+              
+              // Try to find rider number in the row
+              const rowText = row.textContent;
+              const numberMatch = rowText.match(/\(#?(\d+)\)/) || rowText.match(/#(\d+)/);
+              if (numberMatch) {
+                riderNumber = parseInt(numberMatch[1], 10);
+              }
+              
+              break;
+            }
+          }
+          
+          if (riderName && position) {
+            resultsArray.push({
+              position,
+              name: riderName.toUpperCase(),
+              riderNumber,
+            });
+          }
+        }
+      }
+      
+      // If we found results, break
+      if (resultsArray.length > 0) {
+        break;
+      }
+    }
+    
+    return resultsArray;
+  });
+  
+  if (results.length === 0) {
+    throw new Error('Geen resultaten gevonden op de pagina. Zorg ervoor dat de race al is afgelopen en de resultaten zijn gepubliceerd.');
+  }
+  
+  return results.slice(0, 30); // Return top 30
+}
+
+/**
+ * Parse race results from ProCyclingStats.com
+ */
+async function parseProcyclingStatsResults(page) {
+  const results = await page.evaluate(() => {
+    const resultsArray = [];
+    
+    // ProCyclingStats structure - find results table
+    const tables = document.querySelectorAll('table');
+    
+    for (const table of tables) {
+      const rows = table.querySelectorAll('tbody tr, tr');
+      
+      for (const row of rows) {
+        const cells = row.querySelectorAll('td, th');
+        
+        if (cells.length >= 2) {
+          const positionText = cells[0].textContent.trim();
+          const position = parseInt(positionText.replace(/\D/g, ''), 10);
+          
+          if (isNaN(position) || position < 1 || position > 50) {
+            continue;
+          }
+          
+          // Find rider name
+          let riderName = '';
+          let riderNumber = null;
+          
+          for (let i = 1; i < cells.length; i++) {
+            const link = cells[i].querySelector('a');
+            if (link && link.href && link.href.includes('rider/')) {
+              riderName = link.textContent.trim();
+              
+              // Try to find rider number
+              const rowText = row.textContent;
+              const numberMatch = rowText.match(/\(#?(\d+)\)/) || rowText.match(/#(\d+)/) || rowText.match(/\b(\d{1,3})\b/);
+              if (numberMatch) {
+                riderNumber = parseInt(numberMatch[1], 10);
+              }
+              
+              break;
+            }
+          }
+          
+          if (riderName && position) {
+            resultsArray.push({
+              position,
+              name: riderName.toUpperCase(),
+              riderNumber,
+            });
+          }
+        }
+      }
+      
+      if (resultsArray.length > 0) {
+        break;
+      }
+    }
+    
+    return resultsArray;
+  });
+  
+  if (results.length === 0) {
+    throw new Error('Geen resultaten gevonden op de pagina. Zorg ervoor dat de race al is afgelopen en de resultaten zijn gepubliceerd.');
+  }
+  
+  return results.slice(0, 30);
 }
